@@ -1,0 +1,155 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.AI;
+
+[RequireComponent(typeof(NavMeshAgent))]
+public class PlayerController : MonoBehaviour
+{
+    [Header("Movement Settings")]
+    public Transform aimVisual;
+    public LayerMask groundLayer;
+    
+    [Header("AI Settings")]
+    public float stoppingDistance = 2;
+    public float interactDistance = 2.5f;
+    
+    [Header("Combat Settings")]
+    public float attackInterval = 1.5f;
+
+    private float attackTimer = 0;
+    private Transform currentEnemy;
+    private NavMeshAgent agent;
+    private Target currentTarget;
+    
+    void Start()
+    {
+        agent = GetComponent<NavMeshAgent>();
+        aimVisual.gameObject.SetActive(false);
+    }
+
+    void Update()
+    {
+        HandleInput();
+        HandleInteraction();
+        HandleCombat();
+    }
+
+
+    void HandleCombat()
+    {
+        if (currentEnemy == null) return;
+        
+        //stop
+        agent.SetDestination(transform.position);
+        
+        //face enemy
+        var dir = (currentTarget.transform.position - transform.position).normalized;
+        dir.y = 0;
+        transform.rotation = Quaternion.LookRotation(dir);
+        
+        attackTimer += Time.deltaTime;
+        if (attackTimer >= attackInterval)
+        {
+            print("HIT");
+            
+            //TODO: attack animation
+            
+            attackTimer = 0;
+
+            var enemyScript = currentEnemy.GetComponent<Enemy>();
+            enemyScript.TakeDamage(10);
+
+            if (enemyScript.IsDead())
+            {
+                currentEnemy = null;
+                currentTarget = null;
+            }
+        }
+    }
+
+
+    void HandleInteraction()
+    {
+        if (currentTarget == null || currentTarget.transform == null)
+            return;
+        
+        var dist = Vector3.Distance(transform.position, currentTarget.transform.position);
+              
+        if (dist <= interactDistance)
+        {
+            switch (currentTarget.type)
+            {
+                case TargetType.Item:
+                    PickupItem(currentTarget.transform);
+                    currentTarget = null;
+                    break;
+                
+                case TargetType.Enemy:
+                    StartCombat(currentTarget.transform);
+                    break;
+            }
+        }
+    }
+
+    
+    private void StartCombat(Transform enemy)
+    {
+        //print("StartCombat with " + enemy.name);
+        currentEnemy = enemy;
+    }
+
+    
+    private void PickupItem(Transform item)
+    {
+        print("Picked up " + item.name);
+        Destroy(item.gameObject);
+    }
+
+
+    void HandleInput()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+
+            if (Physics.Raycast(ray, out RaycastHit hit, 100, groundLayer))
+            {
+                if (hit.collider.tag == "Enemy")
+                {
+                    agent.stoppingDistance = stoppingDistance;
+                    SetTarget(hit.collider.transform, TargetType.Enemy);
+                }
+                else if (hit.collider.tag == "Item")
+                {
+                    agent.stoppingDistance = stoppingDistance;
+                    SetTarget(hit.collider.transform, TargetType.Item);
+                }
+                else
+                {
+                    agent.stoppingDistance = 0;
+                    SetTarget(null, TargetType.Ground);
+                    agent.SetDestination(hit.point);
+                    aimVisual.position = hit.point + Vector3.up * 0.1f;
+                    aimVisual.forward = hit.normal;
+                    aimVisual.gameObject.SetActive(true);
+                }
+               
+            }
+        }
+
+        if (agent.remainingDistance <= agent.stoppingDistance)
+        {
+            aimVisual.gameObject.SetActive(false);
+        }
+    }
+
+
+    void SetTarget(Transform t, TargetType type)
+    {
+        currentTarget = new Target{transform = t, type = type};
+        
+        if(t != null)
+            agent.SetDestination(t.position);
+    }
+}
