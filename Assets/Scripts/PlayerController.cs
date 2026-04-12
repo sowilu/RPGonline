@@ -16,6 +16,7 @@ public class PlayerController : MonoBehaviour
     
     [Header("Combat Settings")]
     public float attackInterval = 1.5f;
+    public float attackRange = 2.5f;
 
     private float attackTimer = 0;
     private Transform currentEnemy;
@@ -26,6 +27,7 @@ public class PlayerController : MonoBehaviour
     {
         agent = GetComponent<NavMeshAgent>();
         aimVisual.gameObject.SetActive(false);
+        attackTimer = attackInterval;
     }
 
     void Update()
@@ -40,19 +42,27 @@ public class PlayerController : MonoBehaviour
     {
         if (currentEnemy == null) return;
         
+        var distance = Vector3.Distance(transform.position, currentEnemy.position);
+        
+        //if enemy moved away - chase
+        if (distance > attackRange)
+        {
+            agent.isStopped = false;
+            agent.SetDestination(currentTarget.transform.position);
+            return;
+        }
+        
         //stop
         agent.SetDestination(transform.position);
         
         //face enemy
-        var dir = (currentTarget.transform.position - transform.position).normalized;
+        var dir = (currentEnemy.transform.position - transform.position).normalized;
         dir.y = 0;
         transform.rotation = Quaternion.LookRotation(dir);
         
         attackTimer += Time.deltaTime;
         if (attackTimer >= attackInterval)
         {
-            print("HIT");
-            
             //TODO: attack animation
             
             attackTimer = 0;
@@ -111,6 +121,10 @@ public class PlayerController : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            currentEnemy = null;
+            currentTarget = null;
+            agent.isStopped = false;
+            
             var ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 
             if (Physics.Raycast(ray, out RaycastHit hit, 100, groundLayer))
