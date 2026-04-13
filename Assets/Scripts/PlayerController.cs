@@ -6,6 +6,8 @@ using UnityEngine.AI;
 [RequireComponent(typeof(NavMeshAgent))]
 public class PlayerController : MonoBehaviour
 {
+    public Inventory inventory;
+    
     [Header("Movement Settings")]
     public Transform aimVisual;
     public LayerMask groundLayer;
@@ -22,9 +24,11 @@ public class PlayerController : MonoBehaviour
     private Transform currentEnemy;
     private NavMeshAgent agent;
     private Target currentTarget;
+    private Equipment equipment;
     
     void Start()
     {
+        equipment = GetComponent<Equipment>();
         agent = GetComponent<NavMeshAgent>();
         aimVisual.gameObject.SetActive(false);
         attackTimer = attackInterval;
@@ -68,7 +72,7 @@ public class PlayerController : MonoBehaviour
             attackTimer = 0;
 
             var enemyScript = currentEnemy.GetComponent<Enemy>();
-            enemyScript.TakeDamage(10);
+            enemyScript.TakeDamage(equipment.GetDamage());
 
             if (enemyScript.IsDead())
             {
@@ -112,7 +116,9 @@ public class PlayerController : MonoBehaviour
     
     private void PickupItem(Transform item)
     {
-        print("Picked up " + item.name);
+        //print("Picked up " + item.name);
+        var worldItem = item.GetComponent<ItemWorld>();
+        inventory.AddItem(worldItem.data);
         Destroy(item.gameObject);
     }
 
